@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+    app:
+        container_name: sys1-app
+        build:
+            context: .
+            dockerfile: ./docker/php/Dockerfile
+            args:
+                UID: ${UID:-1000}
+                GID: ${GID:-1000}
+                ENV_EXTENSION: ${ENV_EXTENSION:-dev}
+        volumes:
+            - ./src/:/var/www/html
+        user: www-data
+        ports:
+            - "8000:8000"
+
+    next:
+        container_name: sys1-nextjs
+        build:
+            context: .
+            dockerfile: ./docker/next/Dockerfile
+        volumes:
+            - /app/node_modules
+            - ./next/:/app
+        command: npm run dev
+        depends_on:
+            - app
+        ports:
+            - "3000:3000"
+
+    web:
+        container_name: sys1-web
+        build:
+            context: .
+            dockerfile: ./docker/nginx/Dockerfile.${ENV_EXTENSION:-dev}
+        ports:
+            - ${WEB_PORT}:80
+            - "443:443"
+            - "8090:8090"
+        depends_on:
+            - app
+            - next
+        volumes:
+            - ./src/:/var/www/html
+
+    mysql:
+        container_name: sys1-mysql
+        image: mysql:8.0
+        environment:
+            MYSQL_DATABASE: "${APP_NAME}"
+            MYSQL_USER: "${APP_NAME}"
+            MYSQL_PASSWORD: "${PHPMYADMIN_PASSWORD}"
+            MYSQL_ROOT_PASSWORD: "${PHPMYADMIN_PASSWORD}"
+        ports:
+            - "2000:3306"
+        volumes:
+            - sys1-mysql-volume:/var/lib/mysql
+            - ./backup:/backup
+
+    phpmyadmin:
+        container_name: sys1-phpmyadmin
+        image: phpmyadmin/phpmyadmin
+        platform: linux/amd64
+        environment:
+            PMA_HOST: mysql
+            PMA_PORT: 3306
+        ports:
+            - "10000:80"
+        depends_on:
+            - mysql
+
+    mailhog:
+        container_name: sys1-mailhog
+        image: mailhog/mailhog
+        ports:
+            - "1025:1025"
+            - "8025:8025"
+
+    volumes:
+        sys1-mysql-volume:
+            driver: local
+
