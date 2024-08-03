@@ -1,1 +1,145 @@
-## 
+clone する
+
+次のコマンドを実行
+```
+cp .env.example .env
+docker compose build
+docker-compose exec app bash
+```
+
+laravel関連のコンテナで、次のコマンドを実行
+```
+composer create-project --prefer-dist laravel/laravel .
+php artisan key:generate
+composer install
+cp .env.example .env
+php artisan install:api
+exit
+```
+
+src/.envの編集を行います
+```
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=APP
+DB_USERNAME=APP
+DB_PASSWORD=password
+```
+
+続いて、フロント側も用意します。
+
+app/node_modulesを削除して
+```
+docker-compose exec next bash
+```
+を実行して下さい。
+
+Next.js関連のコンテナで、次のコマンドを実行
+```
+npx create-next-app@latest .
+```
+選択肢はこんな感じです
+```
+root@a829883aedf4:/app# npx create-next-app@latest .
+✔ Would you like to use TypeScript? … No / Yes
+✔ Would you like to use ESLint? … No / Yes
+✔ Would you like to use Tailwind CSS? … No / Yes
+✔ Would you like to use `src/` directory? … No / Yes
+✔ Would you like to use App Router? (recommended) … No / Yes
+✔ Would you like to customize the default import alias (@/*)? … No / Yes
+Creating a new Next.js app in /app.
+```
+
+終えたら、
+```
+exit
+```
+でコンテナを抜けます。
+
+Next.jsの初期設定を終えたので、docker関連ファイルを修正します。
+次のように変更してください
+```: docker-compose.yml
+        command: npm run dev // コメントアウトを消して有効化
+        depends_on:
+            - api
+        ports:
+            - "3000:3000"
+        # 最初だけ（後で削除）// いらないので削除
+        # tty: true　　　　　// いらないので削除
+        # stdin_open: true　// いらないので削除
+
+```
+
+```: docker/next/Dockerfile
+# package.jsonとpackage-lock.jsonをコピー
+COPY ./next/package*.json ./     // 有効化
+
+RUN npm install                  // 有効化
+```
+
+
+最後に次のコマンドを叩いてコンテナを再実行してください
+```
+docker compose down
+docker compose build
+docker compose up -d
+```
+
+そうすると、
+
+http://localhost/
+でNext.jsで初期画面が確認可能です。
+![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/2980785/6e2dd227-fa01-deb4-12c6-4870d2ad5358.png)
+
+
+この画面で簡単にLaravelのAPIも叩いてみます。
+次のコードのようにしてください
+```: next/app/page.tsx
+'use client'
+import Image from "next/image";
+import { useEffect } from "react";
+
+
+
+export default function Home() {
+  useEffect(() => {
+    const fetchUser = async () => {
+        const response = await fetch('http://localhost/api/user', {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+        const userData = await response.json();
+        console.log('User data:', userData);
+    };
+  
+  fetchUser();
+}, []);
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
+      ..................
+```
+
+そうすると認証で弾かれてしまいますが、次のようにAPI側のデータが渡ってくることが確認できます。
+
+
+## 環境構築を終えた時点でアクセスできるURL一覧
+  
+- Mailhog メールテスト確認
+  - http://localhost:8025/
+
+- phpMyAdmin
+  - http://localhost:10000/
+
+- laravel
+  - http://localhost/api/
+
+
+## 最後に
+ベースとして使ってこれをカスタムしていくことで色々なシステムが作れると思います！
+是非参考にしていただければと思います!😆
+※また、もっとこういう構成の方がいいというのがあれば是非ご教授いただきたいです！🙇
