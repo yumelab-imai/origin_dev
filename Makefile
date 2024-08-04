@@ -1,8 +1,8 @@
 build:
-	docker compose build
+	docker compose build && make nodem
 
 nbuild:
-	docker compose build --no-cache
+	docker compose build --no-cache && make nodem
 
 up:
 	docker compose up -d
@@ -13,7 +13,7 @@ down:
 api:
 	docker-compose exec api bash
 
-next:
+nextjs:
 	docker-compose exec next bash
 
 rapi:
@@ -30,6 +30,10 @@ nlog:
 
 dls:
 	docker container ls
+
+# nextコンテナのnode_modulesをホストにコピー
+nodem:
+	docker cp sys1-nextjs:/app/node_modules ./next/
 
 dump:
 	@echo "Running the MySQL backup script..."
